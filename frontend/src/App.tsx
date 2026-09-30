@@ -9,7 +9,9 @@ import {
   Routes,
 } from 'react-router-dom'
 
+import ErrorPage from './components/ErrorPage'
 import Layout from './components/Layout'
+import PermissionPage from './components/PermissionPage'
 import { getCurrentUser } from './services/authService'
 import type { CurrentUser } from './types/auth'
 
@@ -22,7 +24,10 @@ function Page({
   return (
     <div>
       <h1>{title}</h1>
-      <p>Nội dung chức năng đang được phát triển.</p>
+
+      <p>
+        Nội dung chức năng đang được phát triển.
+      </p>
     </div>
   )
 }
@@ -96,51 +101,105 @@ function App() {
         >
           <Route
             path="/"
-            element={<Page title="Trang chủ" />}
+            element={
+              <Page title="Trang chủ" />
+            }
           />
 
           <Route
             path="/users"
             element={
-              <Page title="Quản lý tài khoản" />
+              <PermissionPage
+                user={user}
+                permission="USER_MANAGE"
+                title="Quản lý tài khoản"
+              />
             }
           />
 
           <Route
             path="/roles"
             element={
-              <Page title="Vai trò và phân quyền" />
+              <PermissionPage
+                user={user}
+                permission="ROLE_MANAGE"
+                title="Vai trò và phân quyền"
+              />
             }
           />
 
           <Route
             path="/courses"
-            element={<Page title="Khóa học" />}
+            element={
+              <PermissionPage
+                user={user}
+                permission="COURSE_MANAGE"
+                title="Khóa học"
+              />
+            }
           />
 
           <Route
             path="/classes"
-            element={<Page title="Lớp học" />}
+            element={
+              <PermissionPage
+                user={user}
+                permission="CLASS_MANAGE"
+                title="Lớp học"
+              />
+            }
           />
 
           <Route
             path="/grades"
-            element={<Page title="Điểm" />}
+            element={
+              <PermissionPage
+                user={user}
+                permission="GRADE_VIEW"
+                title="Điểm"
+              />
+            }
           />
 
           <Route
             path="/tuition"
-            element={<Page title="Học phí" />}
+            element={
+              <PermissionPage
+                user={user}
+                permission="TUITION_VIEW"
+                title="Học phí"
+              />
+            }
           />
 
           <Route
             path="/attendance"
-            element={<Page title="Điểm danh" />}
+            element={
+              <PermissionPage
+                user={user}
+                permission="ATTENDANCE_VIEW"
+                title="Điểm danh"
+              />
+            }
+          />
+
+          <Route
+            path="*"
+            element={
+              <ErrorPage
+                statusCode={404}
+                title="Không tìm thấy trang"
+                message={
+                  'Trang bạn đang truy cập không tồn tại.'
+                }
+              />
+            }
           />
         </Route>
       </Routes>
     </BrowserRouter>
   )
 }
+
 
 export default App
