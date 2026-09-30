@@ -1,4 +1,5 @@
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -22,7 +23,10 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return password_hash.verify(plain_password, hashed_password)
+    return password_hash.verify(
+        plain_password,
+        hashed_password
+    )
 
 
 def create_access_token(user_id: int, role: str) -> str:
@@ -60,3 +64,7 @@ def create_refresh_token(user_id: int) -> str:
         SECRET_KEY,
         algorithm=ALGORITHM
     )
+
+
+def create_password_reset_token() -> str:
+    return secrets.token_urlsafe(32)

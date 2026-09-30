@@ -8,14 +8,23 @@ from app.database import get_db
 from app.models.role import Role
 from app.models.user import User
 from app.models.session import UserSession
-from app.schemas.auth import LoginRequest, RefreshTokenRequest
+from app.models.password_reset import PasswordResetToken
+from app.schemas.auth import (
+    LoginRequest,
+    RefreshTokenRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest
+)
 from app.core.security import (
     SECRET_KEY,
     ALGORITHM,
     verify_password,
+    hash_password,
     create_access_token,
-    create_refresh_token
+    create_refresh_token,
+    create_password_reset_token
 )
+from app.core.email import send_reset_password_email
 
 
 router = APIRouter(
@@ -142,6 +151,7 @@ def refresh_token(
             SECRET_KEY,
             algorithms=[ALGORITHM]
         )
+
     except jwt.ExpiredSignatureError:
         session.revoked = True
         db.commit()
@@ -150,6 +160,7 @@ def refresh_token(
             status_code=401,
             detail="Phiên đăng nhập đã hết hạn"
         )
+
     except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=401,
@@ -209,4 +220,97 @@ def logout(
 
     return {
         "message": "Đăng xuất thành công"
+    }
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    message = (
+        "Nếu email tồn tại trong hệ thống, "
+        "liên kết đặt lại mật khẩu sẽ được gửi đến email."
+    )
+
+    user = db.query(User).filter(
+        User.email == data.email
+    ).first()
+
+    if user is None:
+        return {
+            "message": message
+        }
+
+    reset_token = create_password_reset_token()
+
+    reset = PasswordResetToken(
+        user_id=user.user_id,
+        token=reset_token,
+        expires_at=datetime.now() + timedelta(minutes=30),
+        used=False
+    )
+
+    db.add(reset)
+    db.commit()
+
+    reset_link = (
+        "http://localhost:3000/reset-password"
+        f"?token={reset_token}"
+    )
+
+    await send_reset_password_email(
+        email=user.email,
+        reset_link=reset_link
+    )
+
+    return {
+        "message": message
+    }
+
+
+@router.post("/reset-password")
+def reset_password(
+    data: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    reset = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == data.token
+    ).first()
+
+    if reset is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Liên kết đặt lại mật khẩu không hợp lệ"
+        )
+
+    if reset.used:
+        raise HTTPException(
+            status_code=400,
+            detail="Liên kết đặt lại mật khẩu đã được sử dụng"
+        )
+
+    if reset.expires_at <= datetime.now():
+        raise HTTPException(
+            status_code=400,
+            detail="Liên kết đặt lại mật khẩu đã hết hạn"
+        )
+
+    user = db.query(User).filter(
+        User.user_id == reset.user_id
+    ).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Không thể đặt lại mật khẩu"
+        )
+
+    user.password = hash_password(data.new_password)
+    reset.used = True
+
+    db.commit()
+
+    return {
+        "message": "Đặt lại mật khẩu thành công"
     }
