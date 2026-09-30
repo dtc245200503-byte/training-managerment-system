@@ -119,3 +119,43 @@ body {
     padding: 16px;
   }
 }
+
+.error-page {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+}
+
+.error-code {
+  font-size: 80px;
+  font-weight: bold;
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.error-page h1 {
+  margin: 0 0 12px;
+}
+
+.error-page p {
+  margin: 0 0 24px;
+  color: #666666;
+}
+
+.error-action {
+  display: inline-block;
+  padding: 10px 18px;
+  border: 1px solid #333333;
+  border-radius: 6px;
+  color: #333333;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.error-action:hover {
+  background: #eeeeee;
+}
