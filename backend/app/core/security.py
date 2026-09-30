@@ -1,4 +1,5 @@
 import os
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -27,6 +28,19 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         plain_password,
         hashed_password
     )
+
+
+def validate_password(password: str) -> bool:
+    if len(password) < 8:
+        return False
+
+    if re.search(r"[A-Za-z]", password) is None:
+        return False
+
+    if re.search(r"[0-9]", password) is None:
+        return False
+
+    return True
 
 
 def create_access_token(user_id: int, role: str) -> str:
@@ -68,3 +82,20 @@ def create_refresh_token(user_id: int) -> str:
 
 def create_password_reset_token() -> str:
     return secrets.token_urlsafe(32)
+
+
+def decode_access_token(token: str):
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+
+        if payload.get("type") != "access":
+            return None
+
+        return payload
+
+    except jwt.InvalidTokenError:
+        return None
