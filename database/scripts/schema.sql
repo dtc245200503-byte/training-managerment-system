@@ -1,10 +1,11 @@
--- 1. Tạo bảng Vai trò (Roles: Admin, Giảng viên, Học viên)
+-- 1. Tạo bảng Vai trò
 CREATE TABLE IF NOT EXISTS roles (
     role_id INT AUTO_INCREMENT PRIMARY KEY,
     role_name VARCHAR(50) NOT NULL UNIQUE
 );
 
--- 2. Tạo bảng Người dùng / Tài khoản (Users)
+
+-- 2. Tạo bảng Người dùng / Tài khoản
 CREATE TABLE IF NOT EXISTS users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
@@ -17,6 +18,10 @@ CREATE TABLE IF NOT EXISTS users (
     failed_login_attempts INT NOT NULL DEFAULT 0,
     locked_until DATETIME NULL,
 
+    -- SCRUM-28: khóa tài khoản bởi quản trị viên
+    is_locked BOOLEAN NOT NULL DEFAULT FALSE,
+    lock_reason VARCHAR(255) NULL,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (role_id)
@@ -24,7 +29,8 @@ CREATE TABLE IF NOT EXISTS users (
         ON DELETE SET NULL
 );
 
--- Bảng quản lý phiên đăng nhập
+
+-- 3. Bảng quản lý phiên đăng nhập
 CREATE TABLE IF NOT EXISTS user_sessions (
     session_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -38,6 +44,8 @@ CREATE TABLE IF NOT EXISTS user_sessions (
         ON DELETE CASCADE
 );
 
+
+-- 4. Bảng token đặt lại mật khẩu
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     reset_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -51,7 +59,8 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
         ON DELETE CASCADE
 );
 
--- 3. Tạo bảng Khóa học (Courses)
+
+-- 5. Tạo bảng Khóa học
 CREATE TABLE IF NOT EXISTS courses (
     course_id INT AUTO_INCREMENT PRIMARY KEY,
     course_name VARCHAR(100) NOT NULL,
@@ -59,40 +68,52 @@ CREATE TABLE IF NOT EXISTS courses (
     duration_months INT DEFAULT 1
 );
 
--- 4. Tạo bảng Lớp học (Classes)
+
+-- 6. Tạo bảng Lớp học
 CREATE TABLE IF NOT EXISTS classes (
     class_id INT AUTO_INCREMENT PRIMARY KEY,
     class_name VARCHAR(100) NOT NULL,
     course_id INT,
     instructor_id INT,
     start_date DATE,
-    FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE,
-    FOREIGN KEY (instructor_id) REFERENCES users(user_id) ON DELETE SET NULL
+
+    FOREIGN KEY (course_id)
+        REFERENCES courses(course_id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (instructor_id)
+        REFERENCES users(user_id)
+        ON DELETE SET NULL
 );
 
--- 5. Tạo bảng Học viên - Lớp học (Student_Classes)
+
+-- 7. Tạo bảng Học viên - Lớp học
 CREATE TABLE IF NOT EXISTS student_classes (
     student_id INT,
     class_id INT,
     enrolled_date DATE DEFAULT (CURRENT_DATE),
+
     PRIMARY KEY (student_id, class_id),
-    FOREIGN KEY (student_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (class_id) REFERENCES classes(class_id) ON DELETE CASCADE
+
+    FOREIGN KEY (student_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (class_id)
+        REFERENCES classes(class_id)
+        ON DELETE CASCADE
 );
 
--- 6. Chèn dữ liệu mẫu ban đầu (Data Seed)
-INSERT INTO roles (role_id, role_name) VALUES 
-(1, 'ADMIN'), 
-(2, 'INSTRUCTOR'), 
-(3, 'STUDENT')
-ON DUPLICATE KEY UPDATE role_name=VALUES(role_name);
 
+-- 8. Tạo bảng Quyền
 CREATE TABLE IF NOT EXISTS permissions (
     permission_id INT AUTO_INCREMENT PRIMARY KEY,
     permission_name VARCHAR(100) NOT NULL UNIQUE,
     description VARCHAR(255)
 );
 
+
+-- 9. Bảng Vai trò - Quyền
 CREATE TABLE IF NOT EXISTS role_permissions (
     role_id INT NOT NULL,
     permission_id INT NOT NULL,
@@ -108,6 +129,8 @@ CREATE TABLE IF NOT EXISTS role_permissions (
         ON DELETE CASCADE
 );
 
+
+-- 10. Bảng Người dùng - Vai trò
 CREATE TABLE IF NOT EXISTS user_roles (
     user_id INT NOT NULL,
     role_id INT NOT NULL,
@@ -123,16 +146,10 @@ CREATE TABLE IF NOT EXISTS user_roles (
         ON DELETE CASCADE
 );
 
-INSERT INTO roles (role_id, role_name) VALUES
-(1, 'ADMIN'),
-(2, 'INSTRUCTOR'),
-(3, 'STUDENT'),
-(4, 'ACCOUNTANT'),
-(5, 'TRAINING_MANAGER'),
-(6, 'ADMISSIONS'),
-(7, 'ACADEMIC_AFFAIRS'),
-(8, 'MANAGEMENT')
-ON DUPLICATE KEY UPDATE role_name = VALUES(role_name);
+
+-- =========================================
+-- DỮ LIỆU VAI TRÒ
+-- =========================================
 
 INSERT INTO roles (role_id, role_name) VALUES
 (1, 'ADMIN'),
@@ -143,7 +160,13 @@ INSERT INTO roles (role_id, role_name) VALUES
 (6, 'ADMISSIONS'),
 (7, 'ACADEMIC_AFFAIRS'),
 (8, 'MANAGEMENT')
-ON DUPLICATE KEY UPDATE role_name = VALUES(role_name);
+ON DUPLICATE KEY UPDATE
+role_name = VALUES(role_name);
+
+
+-- =========================================
+-- DỮ LIỆU QUYỀN
+-- =========================================
 
 INSERT INTO permissions (permission_name, description) VALUES
 ('USER_MANAGE', 'Quản lý tài khoản người dùng'),
@@ -159,8 +182,9 @@ INSERT INTO permissions (permission_name, description) VALUES
 ON DUPLICATE KEY UPDATE
 description = VALUES(description);
 
+
 -- =========================================
--- PHAN QUYEN CHO CAC VAI TRO
+-- PHÂN QUYỀN CHO CÁC VAI TRÒ
 -- =========================================
 
 -- ADMIN: có tất cả quyền
@@ -246,3 +270,13 @@ WHERE permission_name IN (
     'TUITION_VIEW',
     'ATTENDANCE_VIEW'
 );
+
+
+-- =========================================
+-- CHUYỂN ROLE CŨ SANG USER_ROLES
+-- =========================================
+
+INSERT IGNORE INTO user_roles (user_id, role_id)
+SELECT user_id, role_id
+FROM users
+WHERE role_id IS NOT NULL;
