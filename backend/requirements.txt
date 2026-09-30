@@ -6,3 +6,5 @@ pwdlib[argon2]
 PyJWT
 python-dotenv
 fastapi-mail
+pytest
+httpx

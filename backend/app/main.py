@@ -1,13 +1,17 @@
 from fastapi import FastAPI
 from sqlalchemy import text
+
 from app.database import engine
 from app.routers.auth import router as auth_router
+from app.routers.rbac import router as rbac_router
+
 
 app = FastAPI(
     title="Training Management System API"
 )
 
 app.include_router(auth_router)
+app.include_router(rbac_router)
 
 
 @app.get("/health")
