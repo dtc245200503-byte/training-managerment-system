@@ -8,3 +8,4 @@ python-dotenv
 fastapi-mail
 pytest
 httpx
+email-validator
