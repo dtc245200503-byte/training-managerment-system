@@ -5,3 +5,4 @@ pymysql
 pwdlib[argon2]
 PyJWT
 python-dotenv
+fastapi-mail
