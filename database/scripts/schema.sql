@@ -24,6 +24,20 @@ CREATE TABLE IF NOT EXISTS users (
         ON DELETE SET NULL
 );
 
+-- Bảng quản lý phiên đăng nhập
+CREATE TABLE IF NOT EXISTS user_sessions (
+    session_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    refresh_token VARCHAR(500) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE
+);
+
 -- 3. Tạo bảng Khóa học (Courses)
 CREATE TABLE IF NOT EXISTS courses (
     course_id INT AUTO_INCREMENT PRIMARY KEY,
