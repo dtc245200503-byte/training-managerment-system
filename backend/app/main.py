@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.database import engine
@@ -7,10 +8,21 @@ from app.routers.rbac import router as rbac_router
 from app.routers.user_roles import router as user_roles_router
 from app.routers.accounts import router as accounts_router
 from app.routers.users import router as users_router
+from app.routers.me import router as me_router
 
 
 app = FastAPI(
     title="Training Management System API"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth_router)
@@ -18,6 +30,7 @@ app.include_router(rbac_router)
 app.include_router(user_roles_router)
 app.include_router(accounts_router)
 app.include_router(users_router)
+app.include_router(me_router)
 
 
 @app.get("/health")
