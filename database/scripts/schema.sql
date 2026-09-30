@@ -13,8 +13,15 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) NOT NULL UNIQUE,
     phone VARCHAR(20),
     role_id INT,
+
+    failed_login_attempts INT NOT NULL DEFAULT 0,
+    locked_until DATETIME NULL,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE SET NULL
+
+    FOREIGN KEY (role_id)
+        REFERENCES roles(role_id)
+        ON DELETE SET NULL
 );
 
 -- 3. Tạo bảng Khóa học (Courses)
