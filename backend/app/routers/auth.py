@@ -37,8 +37,10 @@ router = APIRouter(
 
 
 @router.post("/login")
-def login(data: LoginRequest, db: Session = Depends(get_db)):
-
+def login(
+    data: LoginRequest,
+    db: Session = Depends(get_db)
+):
     user = db.query(User).filter(
         User.email == data.email
     ).first()
@@ -49,29 +51,61 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
             detail="Email hoặc mật khẩu không đúng"
         )
 
-    now = datetime.now()
-
-    if user.locked_until is not None and user.locked_until > now:
+    # SCRUM-28:
+    # Tài khoản bị quản trị viên khóa thì không được đăng nhập
+    if user.is_locked:
         raise HTTPException(
             status_code=423,
-            detail="Tài khoản tạm thời bị khóa. Vui lòng thử lại sau."
+            detail=(
+                "Tài khoản đã bị khóa. "
+                f"Lý do: {user.lock_reason}"
+            )
         )
 
-    if user.locked_until is not None and user.locked_until <= now:
+    now = datetime.now()
+
+    # Khóa tạm thời do đăng nhập sai nhiều lần
+    if (
+        user.locked_until is not None
+        and user.locked_until > now
+    ):
+        raise HTTPException(
+            status_code=423,
+            detail=(
+                "Tài khoản tạm thời bị khóa. "
+                "Vui lòng thử lại sau."
+            )
+        )
+
+    # Hết thời gian khóa tạm thời
+    if (
+        user.locked_until is not None
+        and user.locked_until <= now
+    ):
         user.locked_until = None
         user.failed_login_attempts = 0
         db.commit()
 
-    if not verify_password(data.password, user.password):
+    # Kiểm tra mật khẩu
+    if not verify_password(
+        data.password,
+        user.password
+    ):
         user.failed_login_attempts += 1
 
         if user.failed_login_attempts >= 5:
-            user.locked_until = now + timedelta(minutes=15)
+            user.locked_until = (
+                now + timedelta(minutes=15)
+            )
+
             db.commit()
 
             raise HTTPException(
                 status_code=423,
-                detail="Tài khoản tạm thời bị khóa trong 15 phút."
+                detail=(
+                    "Tài khoản tạm thời bị khóa "
+                    "trong 15 phút."
+                )
             )
 
         db.commit()
@@ -81,15 +115,21 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
             detail="Email hoặc mật khẩu không đúng"
         )
 
+    # Đăng nhập đúng
     user.failed_login_attempts = 0
     user.locked_until = None
+
     db.commit()
 
     role = db.query(Role).filter(
         Role.role_id == user.role_id
     ).first()
 
-    role_name = role.role_name if role else None
+    role_name = (
+        role.role_name
+        if role
+        else None
+    )
 
     access_token = create_access_token(
         user_id=user.user_id,
@@ -130,13 +170,17 @@ def refresh_token(
     db: Session = Depends(get_db)
 ):
     session = db.query(UserSession).filter(
-        UserSession.refresh_token == data.refresh_token
+        UserSession.refresh_token
+        == data.refresh_token
     ).first()
 
     if session is None or session.revoked:
         raise HTTPException(
             status_code=401,
-            detail="Phiên đăng nhập không hợp lệ hoặc đã đăng xuất"
+            detail=(
+                "Phiên đăng nhập không hợp lệ "
+                "hoặc đã đăng xuất"
+            )
         )
 
     if session.expires_at <= datetime.now():
@@ -186,11 +230,26 @@ def refresh_token(
             detail="Người dùng không tồn tại"
         )
 
+    # SCRUM-28:
+    # Không cho tài khoản bị khóa tạo access token mới
+    if user.is_locked:
+        session.revoked = True
+        db.commit()
+
+        raise HTTPException(
+            status_code=423,
+            detail="Tài khoản đã bị khóa"
+        )
+
     role = db.query(Role).filter(
         Role.role_id == user.role_id
     ).first()
 
-    role_name = role.role_name if role else None
+    role_name = (
+        role.role_name
+        if role
+        else None
+    )
 
     new_access_token = create_access_token(
         user_id=user.user_id,
@@ -209,7 +268,8 @@ def logout(
     db: Session = Depends(get_db)
 ):
     session = db.query(UserSession).filter(
-        UserSession.refresh_token == data.refresh_token
+        UserSession.refresh_token
+        == data.refresh_token
     ).first()
 
     if session is None:
@@ -233,7 +293,8 @@ async def forgot_password(
 ):
     message = (
         "Nếu email tồn tại trong hệ thống, "
-        "liên kết đặt lại mật khẩu sẽ được gửi đến email."
+        "liên kết đặt lại mật khẩu sẽ được "
+        "gửi đến email."
     )
 
     user = db.query(User).filter(
@@ -250,7 +311,10 @@ async def forgot_password(
     reset = PasswordResetToken(
         user_id=user.user_id,
         token=reset_token,
-        expires_at=datetime.now() + timedelta(minutes=30),
+        expires_at=(
+            datetime.now()
+            + timedelta(minutes=30)
+        ),
         used=False
     )
 
@@ -277,32 +341,48 @@ def reset_password(
     data: ResetPasswordRequest,
     db: Session = Depends(get_db)
 ):
-    reset = db.query(PasswordResetToken).filter(
+    reset = db.query(
+        PasswordResetToken
+    ).filter(
         PasswordResetToken.token == data.token
     ).first()
 
     if reset is None:
         raise HTTPException(
             status_code=400,
-            detail="Liên kết đặt lại mật khẩu không hợp lệ"
+            detail=(
+                "Liên kết đặt lại mật khẩu "
+                "không hợp lệ"
+            )
         )
 
     if reset.used:
         raise HTTPException(
             status_code=400,
-            detail="Liên kết đặt lại mật khẩu đã được sử dụng"
+            detail=(
+                "Liên kết đặt lại mật khẩu "
+                "đã được sử dụng"
+            )
         )
 
     if reset.expires_at <= datetime.now():
         raise HTTPException(
             status_code=400,
-            detail="Liên kết đặt lại mật khẩu đã hết hạn"
+            detail=(
+                "Liên kết đặt lại mật khẩu "
+                "đã hết hạn"
+            )
         )
 
-    if not validate_password(data.new_password):
+    if not validate_password(
+        data.new_password
+    ):
         raise HTTPException(
             status_code=400,
-            detail="Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ và số"
+            detail=(
+                "Mật khẩu mới phải có ít nhất "
+                "8 ký tự, gồm chữ và số"
+            )
         )
 
     user = db.query(User).filter(
@@ -315,7 +395,10 @@ def reset_password(
             detail="Không thể đặt lại mật khẩu"
         )
 
-    user.password = hash_password(data.new_password)
+    user.password = hash_password(
+        data.new_password
+    )
+
     reset.used = True
 
     db.commit()
@@ -328,7 +411,9 @@ def reset_password(
 @router.post("/change-password")
 def change_password(
     data: ChangePasswordRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
     db: Session = Depends(get_db)
 ):
     if not verify_password(
@@ -340,10 +425,15 @@ def change_password(
             detail="Mật khẩu hiện tại không đúng"
         )
 
-    if not validate_password(data.new_password):
+    if not validate_password(
+        data.new_password
+    ):
         raise HTTPException(
             status_code=400,
-            detail="Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ và số"
+            detail=(
+                "Mật khẩu mới phải có ít nhất "
+                "8 ký tự, gồm chữ và số"
+            )
         )
 
     if verify_password(
@@ -352,7 +442,10 @@ def change_password(
     ):
         raise HTTPException(
             status_code=400,
-            detail="Mật khẩu mới phải khác mật khẩu hiện tại"
+            detail=(
+                "Mật khẩu mới phải khác "
+                "mật khẩu hiện tại"
+            )
         )
 
     current_user.password = hash_password(
@@ -360,7 +453,8 @@ def change_password(
     )
 
     db.query(UserSession).filter(
-        UserSession.user_id == current_user.user_id,
+        UserSession.user_id
+        == current_user.user_id,
         UserSession.revoked == False
     ).update(
         {
@@ -374,6 +468,7 @@ def change_password(
     return {
         "message": (
             "Đổi mật khẩu thành công. "
-            "Các phiên đăng nhập khác đã được thu hồi."
+            "Các phiên đăng nhập khác "
+            "đã được thu hồi."
         )
     }

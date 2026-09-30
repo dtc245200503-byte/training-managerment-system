@@ -1,5 +1,8 @@
 from fastapi import Depends, HTTPException
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import (
+    HTTPAuthorizationCredentials,
+    HTTPBearer
+)
 from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token
@@ -11,7 +14,9 @@ security = HTTPBearer()
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials = Depends(
+        security
+    ),
     db: Session = Depends(get_db)
 ):
     token = credentials.credentials
@@ -21,7 +26,10 @@ def get_current_user(
     if payload is None:
         raise HTTPException(
             status_code=401,
-            detail="Phiên đăng nhập không hợp lệ hoặc đã hết hạn"
+            detail=(
+                "Phiên đăng nhập không hợp lệ "
+                "hoặc đã hết hạn"
+            )
         )
 
     user_id = payload.get("sub")
@@ -40,6 +48,15 @@ def get_current_user(
         raise HTTPException(
             status_code=401,
             detail="Người dùng không tồn tại"
+        )
+
+    if user.is_locked:
+        raise HTTPException(
+            status_code=423,
+            detail=(
+                "Tài khoản đã bị khóa. "
+                "Vui lòng liên hệ quản trị viên."
+            )
         )
 
     return user
