@@ -13,17 +13,20 @@ from app.schemas.auth import (
     LoginRequest,
     RefreshTokenRequest,
     ForgotPasswordRequest,
-    ResetPasswordRequest
+    ResetPasswordRequest,
+    ChangePasswordRequest
 )
 from app.core.security import (
     SECRET_KEY,
     ALGORITHM,
     verify_password,
     hash_password,
+    validate_password,
     create_access_token,
     create_refresh_token,
     create_password_reset_token
 )
+from app.core.auth import get_current_user
 from app.core.email import send_reset_password_email
 
 
@@ -296,6 +299,12 @@ def reset_password(
             detail="Liên kết đặt lại mật khẩu đã hết hạn"
         )
 
+    if not validate_password(data.new_password):
+        raise HTTPException(
+            status_code=400,
+            detail="Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ và số"
+        )
+
     user = db.query(User).filter(
         User.user_id == reset.user_id
     ).first()
@@ -313,4 +322,58 @@ def reset_password(
 
     return {
         "message": "Đặt lại mật khẩu thành công"
+    }
+
+
+@router.post("/change-password")
+def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not verify_password(
+        data.current_password,
+        current_user.password
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Mật khẩu hiện tại không đúng"
+        )
+
+    if not validate_password(data.new_password):
+        raise HTTPException(
+            status_code=400,
+            detail="Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ và số"
+        )
+
+    if verify_password(
+        data.new_password,
+        current_user.password
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Mật khẩu mới phải khác mật khẩu hiện tại"
+        )
+
+    current_user.password = hash_password(
+        data.new_password
+    )
+
+    db.query(UserSession).filter(
+        UserSession.user_id == current_user.user_id,
+        UserSession.revoked == False
+    ).update(
+        {
+            UserSession.revoked: True
+        },
+        synchronize_session=False
+    )
+
+    db.commit()
+
+    return {
+        "message": (
+            "Đổi mật khẩu thành công. "
+            "Các phiên đăng nhập khác đã được thu hồi."
+        )
     }
