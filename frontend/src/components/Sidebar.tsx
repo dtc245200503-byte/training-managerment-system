@@ -3,11 +3,17 @@ import { NavLink } from 'react-router-dom'
 import { menuItems } from '../data/menuItems'
 import type { CurrentUser } from '../types/auth'
 
+
 interface SidebarProps {
   user: CurrentUser
+  onLogout: () => void
 }
 
-function Sidebar({ user }: SidebarProps) {
+
+function Sidebar({
+  user,
+  onLogout,
+}: SidebarProps) {
   const visibleMenuItems = menuItems.filter((item) => {
     if (!item.permission) {
       return true
@@ -16,10 +22,11 @@ function Sidebar({ user }: SidebarProps) {
     return user.permissions.includes(item.permission)
   })
 
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <h2>Training System</h2>
+        <h2>Quản lý đào tạo</h2>
       </div>
 
       <nav className="sidebar-menu">
@@ -44,9 +51,18 @@ function Sidebar({ user }: SidebarProps) {
         <span>
           {user.roles.join(', ')}
         </span>
+
+        <button
+          type="button"
+          className="logout-button"
+          onClick={onLogout}
+        >
+          Đăng xuất
+        </button>
       </div>
     </aside>
   )
 }
+
 
 export default Sidebar

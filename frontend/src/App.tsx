@@ -10,9 +10,17 @@ import {
 } from 'react-router-dom'
 
 import ErrorPage from './components/ErrorPage'
+import ForgotPasswordPage from './components/ForgotPasswordPage'
 import Layout from './components/Layout'
+import LoginPage from './components/LoginPage'
 import PermissionPage from './components/PermissionPage'
-import { getCurrentUser } from './services/authService'
+import ResetPasswordPage from './components/ResetPasswordPage'
+import {
+  forgotPassword,
+  getCurrentUser,
+  login,
+  resetPassword,
+} from './services/authService'
 import type { CurrentUser } from './types/auth'
 
 
@@ -40,19 +48,37 @@ function App() {
 
   const [loading, setLoading] = useState(true)
 
-  const [error, setError] = useState('')
+  const [showForgotPassword, setShowForgotPassword] =
+    useState(false)
+
+  const [resetToken, setResetToken] = useState<
+    string | null
+  >(null)
 
 
   useEffect(() => {
+    const params = new URLSearchParams(
+      window.location.search,
+    )
+
+    const token = params.get('token')
+
+    if (
+      window.location.pathname === '/reset-password'
+      && token
+    ) {
+      setResetToken(token)
+      setLoading(false)
+      return
+    }
+
+
     const loadUser = async () => {
       const accessToken = localStorage.getItem(
         'access_token',
       )
 
       if (!accessToken) {
-        setError(
-          'Chưa có access token. Vui lòng đăng nhập.',
-        )
         setLoading(false)
         return
       }
@@ -64,9 +90,8 @@ function App() {
 
         setUser(currentUser)
       } catch {
-        setError(
-          'Không thể lấy thông tin người dùng.',
-        )
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
       } finally {
         setLoading(false)
       }
@@ -76,18 +101,112 @@ function App() {
   }, [])
 
 
+  const handleLogin = async (
+    email: string,
+    password: string,
+  ) => {
+    const result = await login(
+      email,
+      password,
+    )
+
+    localStorage.setItem(
+      'access_token',
+      result.access_token,
+    )
+
+    localStorage.setItem(
+      'refresh_token',
+      result.refresh_token,
+    )
+
+    const currentUser = await getCurrentUser(
+      result.access_token,
+    )
+
+    setUser(currentUser)
+  }
+
+
+  const handleForgotPassword = async (
+    email: string,
+  ) => {
+    await forgotPassword(email)
+  }
+
+
+  const handleResetPassword = async (
+    password: string,
+  ) => {
+    if (!resetToken) {
+      throw new Error(
+        'Liên kết đặt lại mật khẩu không hợp lệ.',
+      )
+    }
+
+    await resetPassword(
+      resetToken,
+      password,
+    )
+  }
+
+
+  const handleBackToLogin = () => {
+    setResetToken(null)
+    setShowForgotPassword(false)
+
+    window.history.replaceState(
+      {},
+      '',
+      '/',
+    )
+  }
+
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+
+    setUser(null)
+    setShowForgotPassword(false)
+  }
+
+
   if (loading) {
     return <p>Đang tải...</p>
   }
 
 
-  if (error) {
-    return <p>{error}</p>
+  if (resetToken) {
+    return (
+      <ResetPasswordPage
+        onSubmit={handleResetPassword}
+        onBack={handleBackToLogin}
+      />
+    )
   }
 
 
   if (!user) {
-    return <p>Không tìm thấy người dùng.</p>
+    if (showForgotPassword) {
+      return (
+        <ForgotPasswordPage
+          onSubmit={handleForgotPassword}
+          onBack={() =>
+            setShowForgotPassword(false)
+          }
+        />
+      )
+    }
+
+    return (
+      <LoginPage
+        onLogin={handleLogin}
+        onForgotPassword={() =>
+          setShowForgotPassword(true)
+        }
+      />
+    )
   }
 
 
@@ -96,7 +215,10 @@ function App() {
       <Routes>
         <Route
           element={
-            <Layout user={user} />
+            <Layout
+              user={user}
+              onLogout={handleLogout}
+            />
           }
         >
           <Route

@@ -322,7 +322,7 @@ async def forgot_password(
     db.commit()
 
     reset_link = (
-        "http://localhost:3000/reset-password"
+        "http://localhost:5173/reset-password"
         f"?token={reset_token}"
     )
 
